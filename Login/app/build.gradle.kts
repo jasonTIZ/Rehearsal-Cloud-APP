@@ -2,15 +2,16 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp")
 }
 
 android {
-    namespace = "com.example.rehearsalcloud"
+    namespace = "com.app.rehearsalcloud"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.rehearsalcloud"
-        minSdk = 24
+        applicationId = "com.app.rehearsalcloud"
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -39,6 +40,7 @@ android {
     }
 }
 
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -49,6 +51,10 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.runtime.saved.instance.state)
+    implementation(libs.androidx.benchmark.macro)
+    implementation(libs.androidx.games.activity)
+    implementation(libs.play.services.maps)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -56,10 +62,18 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
     implementation(libs.androidx.appcompat)
     implementation(libs.retrofit)
-    implementation(libs.converter.gson)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.material)
-
+    implementation(libs.androidx.material.icons.extended) // or the latest version
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.retrofit)
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin) // for Kotlin support
+    implementation(libs.converter.moshi)
+    implementation(libs.kotlinx.coroutines.android)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.logging.interceptor)
 }

@@ -1,4 +1,4 @@
-package com.example.rehearsalcloud
+package com.app.rehearsalcloud
 
 import org.junit.Test
 
