@@ -40,4 +40,8 @@ object RetrofitClient {
     val setlistApiService: SetlistApiService by lazy {
         retrofit.create(SetlistApiService::class.java)
     }
+
+    val authApiService: AuthApiService by lazy{
+        retrofit.create(AuthApiService::class.java)
+    }
 }

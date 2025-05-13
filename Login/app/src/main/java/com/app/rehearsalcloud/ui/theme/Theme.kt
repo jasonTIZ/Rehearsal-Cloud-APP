@@ -34,6 +34,25 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
+fun EventFinderTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    // Determine the color scheme based on the theme
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+    MaterialTheme(colorScheme = colorScheme, content = content)
+}
+
+@Composable
 fun RehearsalCloudTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
