@@ -1,90 +1,125 @@
-package com.example.rehearsalcloud.viewmodel
+package com.app.rehearsalcloud.viewmodel
 
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.rehearsalcloud.models.CreateUserRequest
-import com.example.rehearsalcloud.models.DeleteUserResponse
-import com.example.rehearsalcloud.models.LoginRequest
-import com.example.rehearsalcloud.models.User
-import com.example.rehearsalcloud.network.RetrofitInstance
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.app.rehearsalcloud.model.User
+import com.app.rehearsalcloud.repository.AuthRepository
 import kotlinx.coroutines.launch
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
 
-    private val _users = MutableStateFlow<List<User>>(emptyList())
-    val users: StateFlow<List<User>> get() = _users
+    var currentUser by mutableStateOf<User?>(null)
+        private set
 
-    private val _authStatus = MutableStateFlow<String>("")
-    val authStatus: StateFlow<String> get() = _authStatus
+    var users by mutableStateOf<List<User>>(emptyList())
+        private set
 
-    private val _deleteStatus = MutableStateFlow<String>("")
-    val deleteStatus: StateFlow<String> get() = _deleteStatus
+    var isLoading by mutableStateOf(false)
+        private set
 
-    // Estado de carga para indicar cuando una operación está en progreso
-    private val _isLoading = MutableStateFlow<Boolean>(false)
-    val isLoading: StateFlow<Boolean> get() = _isLoading
+    var errorMessage by mutableStateOf<String?>(null)
+        private set
 
+    var isAuthenticated by mutableStateOf(false)
+        private set
+
+    // Register a new user
     fun registerUser(username: String, email: String, password: String) {
         viewModelScope.launch {
-            _isLoading.value = true
+            isLoading = true
+            Log.d("AUTH", "Registering user...")
             try {
-                val response = RetrofitInstance.api.registerUser(
-                    CreateUserRequest(username, email, password)
+                val newUser = User(
+                    username = username,
+                    email = email,
+                    password = password
                 )
-                _authStatus.value = response
+                val registeredUser = repository.registerUser(newUser)
+                currentUser = registeredUser
+                isAuthenticated = true
+                Log.d("AUTH", "User registered successfully: ${registeredUser.username}")
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Error registering user", e)
-                _authStatus.value = "Error al registrar el usuario: ${e.localizedMessage}"
+                errorMessage = e.message ?: "Unknown error occurred during registration"
+                Log.e("AUTH", "Failed to register user: ${e.localizedMessage}", e)
             } finally {
-                _isLoading.value = false
+                isLoading = false
             }
         }
     }
 
-    fun loginUser(username: String, password: String) {
+    // Login user
+    fun loginUser(email: String, password: String) {
         viewModelScope.launch {
-            _isLoading.value = true
+            isLoading = true
+            Log.d("AUTH", "Logging in user...")
             try {
-                val response = RetrofitInstance.api.loginUser(LoginRequest(username, password))
-                _authStatus.value = response
+                val user = User(
+                    email = email,
+                    password = password,
+                    username = "" // Username not needed for login
+                )
+                val loggedInUser = repository.loginUser(user)
+                currentUser = loggedInUser
+                isAuthenticated = true
+                Log.d("AUTH", "User logged in successfully: ${loggedInUser.email}")
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Error logging in", e)
-                _authStatus.value = "Error al iniciar sesión: ${e.localizedMessage}"
+                errorMessage = e.message ?: "Unknown error occurred during login"
+                Log.e("AUTH", "Failed to login user: ${e.localizedMessage}", e)
             } finally {
-                _isLoading.value = false
+                isLoading = false
             }
         }
     }
 
-    fun fetchUsers() {
+    // Logout user
+    fun logout() {
+        currentUser = null
+        isAuthenticated = false
+        Log.d("AUTH", "User logged out")
+    }
+
+    // Load all users (for admin purposes)
+    fun loadUsers() {
+        viewModelScope.launch {
+            isLoading = true
+            Log.d("AUTH", "Loading users...")
+            try {
+                users = repository.getUsers()
+                Log.d("AUTH", "Users loaded: ${users.size} items")
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Failed to load users"
+                Log.e("AUTH", "Failed to load users: ${e.localizedMessage}", e)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    // Delete a user (for admin purposes)
+    fun deleteUser(id: Int) {
         viewModelScope.launch {
             try {
-                val usersList = RetrofitInstance.api.getUsers()
-                _users.value = usersList
+                repository.deleteUser(id)
+                users = users.filter { it.id != id }
+                Log.d("AUTH", "User with ID $id deleted successfully")
+
+                // If the deleted user is the current user, log them out
+                if (currentUser?.id == id) {
+                    logout()
+                }
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "Error fetching users", e)
+                errorMessage = e.message ?: "Failed to delete user"
+                Log.e("AUTH", "Failed to delete user: ${e.localizedMessage}", e)
             }
         }
     }
 
-    fun deleteUser(userId: Int) {
-        viewModelScope.launch {
-            try {
-                val response: DeleteUserResponse = RetrofitInstance.api.deleteUser(userId)
-                _deleteStatus.value = response.message
-                fetchUsers() // Actualiza la lista después de eliminar
-            } catch (e: Exception) {
-                Log.e("AuthViewModel", "Error deleting user", e)
-                _deleteStatus.value = "Error al eliminar el usuario: ${e.localizedMessage}"
-            }
-        }
-    }
-
-    // Método para limpiar el estado de autenticación
-    fun clearAuthStatus() {
-        _authStatus.value = ""
+    // Clear error message
+    fun clearErrorMessage() {
+        errorMessage = null
     }
 }
