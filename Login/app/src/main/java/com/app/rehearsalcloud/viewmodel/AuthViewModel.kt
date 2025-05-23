@@ -99,12 +99,11 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
                 val loginSuccess = repository.loginUser(user)
                 if (loginSuccess) {
                     isAuthenticated = true
-                    // Opcional: guardar datos básicos del usuario
                     currentUser = User(
-                        id = null, // Obtenerlo después si es necesario
+                        id = null,
                         username = username,
                         email = "",
-                        password = "" // No almacenar la contraseña
+                        password = ""
                     )
                 }
             } catch (e: Exception) {

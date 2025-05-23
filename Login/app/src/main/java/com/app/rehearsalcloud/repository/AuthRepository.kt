@@ -40,6 +40,7 @@ class AuthRepository {
 
             return when {
                 message?.contains("exitoso") == true -> true
+                message?.contains("incorrecta") == true -> throw Exception("Credenciales incorrectas, intente de nuevo")
                 message != null -> throw Exception(message)
                 else -> throw Exception("Respuesta inválida del servidor")
             }
@@ -47,7 +48,11 @@ class AuthRepository {
             val errorBody = response.errorBody()?.string()
             val errorMessage = try {
                 val errorJson = JSONObject(errorBody ?: "")
-                errorJson.getString("message")
+                when (errorJson.getString("message")) {
+                    "Usuario no encontrado" -> "Credenciales incorrectas, intente de nuevo"
+                    "Contraseña incorrecta" -> "Credenciales incorrectas, intente de nuevo"
+                    else -> errorJson.getString("message")
+                }
             } catch (e: Exception) {
                 "Error en el inicio de sesión"
             }
