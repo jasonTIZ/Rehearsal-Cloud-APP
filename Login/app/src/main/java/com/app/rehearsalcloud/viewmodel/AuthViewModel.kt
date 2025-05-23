@@ -1,6 +1,7 @@
 package com.app.rehearsalcloud.viewmodel
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,11 +10,15 @@ import androidx.lifecycle.viewModelScope
 import com.app.rehearsalcloud.model.User
 import com.app.rehearsalcloud.repository.AuthRepository
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 
 class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
 
-    var currentUser by mutableStateOf<User?>(null)
-        private set
+
+
+
 
     var users by mutableStateOf<List<User>>(emptyList())
         private set
@@ -21,54 +26,90 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     var isLoading by mutableStateOf(false)
         private set
 
-    var errorMessage by mutableStateOf<String?>(null)
+    var errorMessage by mutableStateOf("")
         private set
 
     var isAuthenticated by mutableStateOf(false)
         private set
 
+    var currentUser by mutableStateOf<User?>(null)
+        private set
+
+    // Función para limpiar el estado de autenticación
+    fun clearAuthStatus() {
+        var authStatus = null
+    }
+
+
+
     // Register a new user
-    fun registerUser(username: String, email: String, password: String) {
+    fun registerUser(username: String, email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             isLoading = true
-            Log.d("AUTH", "Registering user...")
+            errorMessage = ""
+
             try {
                 val newUser = User(
                     username = username,
                     email = email,
                     password = password
                 )
+
                 val registeredUser = repository.registerUser(newUser)
                 currentUser = registeredUser
                 isAuthenticated = true
-                Log.d("AUTH", "User registered successfully: ${registeredUser.username}")
+
+                // Llama a la función de éxito que viene desde el Composable
+                onSuccess()
+
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Unknown error occurred during registration"
-                Log.e("AUTH", "Failed to register user: ${e.localizedMessage}", e)
+                errorMessage = when {
+                    e.message?.contains("exitosamente") == true -> {
+                        "¡Registro exitoso! Por favor inicia sesión"
+                    }
+                    e.message?.contains("ya está en uso") == true -> {
+                        "El nombre de usuario o correo ya está registrado"
+                    }
+                    e.message?.contains("al menos 8 caracteres") == true -> {
+                        "La contraseña debe tener al menos 8 caracteres"
+                    }
+                    else -> {
+                        Log.e("AUTH", "Registration error", e)
+                        "Error en el registro: ${e.message ?: "por favor intenta nuevamente"}"
+                    }
+                }
             } finally {
                 isLoading = false
             }
         }
     }
-
     // Login user
-    fun loginUser(email: String, password: String) {
+    fun loginUser(username: String, password: String) {
         viewModelScope.launch {
             isLoading = true
-            Log.d("AUTH", "Logging in user...")
+            errorMessage = ""
+
             try {
                 val user = User(
-                    email = email,
+                    username = username,
                     password = password,
-                    username = "" // Username not needed for login
+                    email = "" // No necesario para login
                 )
-                val loggedInUser = repository.loginUser(user)
-                currentUser = loggedInUser
-                isAuthenticated = true
-                Log.d("AUTH", "User logged in successfully: ${loggedInUser.email}")
+
+                val loginSuccess = repository.loginUser(user)
+                if (loginSuccess) {
+                    isAuthenticated = true
+                    // Opcional: guardar datos básicos del usuario
+                    currentUser = User(
+                        id = null, // Obtenerlo después si es necesario
+                        username = username,
+                        email = "",
+                        password = "" // No almacenar la contraseña
+                    )
+                }
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Unknown error occurred during login"
-                Log.e("AUTH", "Failed to login user: ${e.localizedMessage}", e)
+                errorMessage = e.message ?: "Error desconocido en el login"
+                Log.e("AUTH", "Login error", e)
             } finally {
                 isLoading = false
             }
@@ -120,6 +161,6 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
 
     // Clear error message
     fun clearErrorMessage() {
-        errorMessage = null
+        errorMessage = ""
     }
 }

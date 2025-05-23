@@ -21,20 +21,17 @@ import androidx.compose.ui.unit.dp
 import com.app.rehearsalcloud.ui.theme.EventFinderTheme
 import com.app.rehearsalcloud.viewmodel.AuthViewModel
 
-class LoginActivity : ComponentActivity() {
+class RegisterActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             EventFinderTheme {
-                LoginScreen(
+                RegisterScreen(
                     authViewModel = authViewModel,
-                    onNavigateToRegister = {
-                        startActivity(Intent(this, RegisterActivity::class.java))
-                    },
-                    onLoginSuccess = {
-                        startActivity(Intent(this, MainActivity::class.java))
+                    onNavigateToLogin = {
+                        startActivity(Intent(this, LoginActivity::class.java))
                         finish()
                     }
                 )
@@ -45,14 +42,15 @@ class LoginActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(
+fun RegisterScreen(
     authViewModel: AuthViewModel,
-    onNavigateToRegister: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onNavigateToLogin: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showEmptyFieldsToast by remember { mutableStateOf(false) }
 
     // Estados del ViewModel
     val isLoading = authViewModel.isLoading
@@ -61,10 +59,27 @@ fun LoginScreen(
 
     val context = LocalContext.current
 
-    // Efecto para manejar autenticación exitosa
+    // Efecto para mostrar Toast de campos vacíos
+    if (showEmptyFieldsToast) {
+        LaunchedEffect(showEmptyFieldsToast) {
+            Toast.makeText(
+                context,
+                "Por favor completa todos los campos",
+                Toast.LENGTH_SHORT
+            ).show()
+            showEmptyFieldsToast = false
+        }
+    }
+
+    // Efecto para manejar registro exitoso
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
-            onLoginSuccess()
+            Toast.makeText(
+                context,
+                "¡Registro exitoso! Por favor inicia sesión",
+                Toast.LENGTH_SHORT
+            ).show()
+            onNavigateToLogin()
         }
     }
 
@@ -96,7 +111,17 @@ fun LoginScreen(
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Username") },
+                label = { Text("Usuario") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Correo electrónico") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -109,7 +134,7 @@ fun LoginScreen(
                 label = { Text("Contraseña") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = { 
+                trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.Visibility
@@ -126,14 +151,15 @@ fun LoginScreen(
 
             Button(
                 onClick = {
-                    if (username.isBlank() || password.isBlank()) {
-                        Toast.makeText(
-                            context,
-                            "Por favor completa todos los campos",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    if (username.isBlank() || email.isBlank() || password.isBlank()) {
+                        showEmptyFieldsToast = true
                     } else {
-                        authViewModel.loginUser(username, password)
+                        authViewModel.registerUser(
+                            username = username,
+                            email = email,
+                            password = password,
+                            onSuccess = onNavigateToLogin
+                        )
                     }
                 },
                 modifier = Modifier
@@ -148,17 +174,17 @@ fun LoginScreen(
                         modifier = Modifier.size(24.dp)
                     )
                 } else {
-                    Text("Iniciar Sesión")
+                    Text("Registrarse")
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             TextButton(
-                onClick = onNavigateToRegister,
+                onClick = onNavigateToLogin,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("¿No tienes cuenta? Regístrate")
+                Text("¿Ya tienes cuenta? Inicia sesión", color = MaterialTheme.colorScheme.primary)
             }
         }
     }

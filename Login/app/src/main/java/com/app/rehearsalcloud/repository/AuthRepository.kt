@@ -1,7 +1,9 @@
 package com.app.rehearsalcloud.repository
 
+import android.util.Log
 import com.app.rehearsalcloud.api.RetrofitClient
 import com.app.rehearsalcloud.model.User
+import org.json.JSONObject
 
 
 class AuthRepository {
@@ -9,22 +11,47 @@ class AuthRepository {
     private val apiService = RetrofitClient.authApiService
 
 
-    suspend fun registerUser(User: User): User {
-        val response = apiService.registerUser(User)
+    suspend fun registerUser(user: User): User {
+        val response = apiService.registerUser(user)
+
         if (response.isSuccessful) {
-            return response.body()!!
+            val responseBody = response.body()
+            Log.d("API_RESPONSE", "Raw registration response: $responseBody")
+
+
+            if (responseBody != null && responseBody["message"] != null) {
+                return user.copy(id = 0) // ID temporal
+            }
+            throw Exception("Unexpected response: $responseBody")
         } else {
-            throw Exception("Failed to create setlist")
+            val errorBody = response.errorBody()?.string()
+            Log.e("API_ERROR", "Registration failed: $errorBody")
+            throw Exception(errorBody ?: "Registration failed with status ${response.code()}")
         }
     }
 
 
-    suspend fun loginUser(User: User): User {
-        val response = apiService.loginUser(User)
+    suspend fun loginUser(user: User): Boolean {
+        val response = apiService.loginUser(user)
+
         if (response.isSuccessful) {
-            return response.body()!!
+            val responseBody = response.body()
+            val message = responseBody?.get("message") as? String
+
+            return when {
+                message?.contains("exitoso") == true -> true
+                message != null -> throw Exception(message)
+                else -> throw Exception("Respuesta inválida del servidor")
+            }
         } else {
-            throw Exception("Failed to create setlist")
+            val errorBody = response.errorBody()?.string()
+            val errorMessage = try {
+                val errorJson = JSONObject(errorBody ?: "")
+                errorJson.getString("message")
+            } catch (e: Exception) {
+                "Error en el inicio de sesión"
+            }
+            throw Exception(errorMessage)
         }
     }
 
@@ -34,7 +61,7 @@ class AuthRepository {
         return if (response.isSuccessful) {
             response.body() ?: emptyList()
         } else {
-            throw Exception("Failed to load setlists")
+            throw Exception("Failed to load user")
         }
     }
 
@@ -42,7 +69,7 @@ class AuthRepository {
     suspend fun deleteUser(id: Int) {
         val response = apiService.deleteUser(id)
         if (!response.isSuccessful) {
-            throw Exception("Failed to delete setlist")
+            throw Exception("Failed to delete user")
         }
     }
 }
