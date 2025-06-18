@@ -44,7 +44,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
-import com.app.rehearsalcloud.model.Setlist
+import com.app.rehearsalcloud.model.setlist.Setlist
+import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
+import com.app.rehearsalcloud.model.song.Song
 import com.app.rehearsalcloud.viewmodel.SetlistViewModel
 
 @Composable
@@ -68,8 +70,8 @@ fun EditSetlistScreen(
         viewModel.getSetlistById(setlistId)
 
         if (setlist != null) {
-            name = setlist.name
-            date = setlist.date
+            name = setlist.setlist.name
+            date = setlist.setlist.date
         }
     }
 
@@ -121,16 +123,21 @@ fun EditSetlistScreen(
             initialDate = date,
             onDismiss = { showDialog = false },
             onEdit = { id, updatedName, updatedDate ->
+
                 // When edit is confirmed, create a new updated setlist
-                val updatedSetlist = Setlist(
-                    id = id,
-                    name = updatedName,
-                    date = updatedDate,
-                    setlistSongs = setlist?.setlistSongs ?: emptyList()
-                )
+                val updatedSetlist = setlist.let {
+                    it?.let { it1 ->
+                        SetlistWithSongs(
+                            Setlist(id, name, date),
+                            it1.songs
+                        )
+                    }
+                }
 
                 // Update the setlist using the viewModel
-                viewModel.updateSetlist(id, updatedSetlist)
+                if (updatedSetlist != null) {
+                    viewModel.updateSetlist(id, updatedSetlist)
+                }
                 viewModel.getSetlistById(id) // Re-fetch the updated data
 
                 // Close the dialog after editing

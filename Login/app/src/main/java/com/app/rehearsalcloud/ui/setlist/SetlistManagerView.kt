@@ -45,8 +45,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.app.rehearsalcloud.model.Setlist
+import com.app.rehearsalcloud.model.setlist.Setlist
+import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
 import com.app.rehearsalcloud.viewmodel.SetlistViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,27 +61,27 @@ fun SetlistManagerView(navController: NavHostController) {
     var selectedTab by remember { mutableStateOf("On my device") }
     var searchQuery by remember { mutableStateOf("") }
     var isDialogOpen by remember { mutableStateOf(false) }
-    var setlistToDelete by remember { mutableStateOf<Setlist?>(null) }
+    var setlistToDelete by remember { mutableStateOf<SetlistWithSongs?>(null) }
 
-    var selectedDate by remember { mutableStateOf("MM/dd/yyyy") } // Default date format
+    var selectedDate by remember { mutableStateOf("MM/dd/yyyy") }
     var name by remember { mutableStateOf("") }
 
     val filteredSetlists = viewModel.setlists.filter {
-        it.name.contains(searchQuery, ignoreCase = true)
+        it.setlist.name.contains(searchQuery, ignoreCase = true)
     }
 
     LaunchedEffect(Unit) {
         viewModel.loadSetlists()
     }
 
-    // Show CreateSetlistDialog when `isDialogOpen` is true
     if (isDialogOpen) {
         CreateSetlistDialog(
             onDismiss = { isDialogOpen = false },
             onCreate = { setlistName, date ->
-                // Create setlist logic
                 viewModel.createSetlist(setlistName, date)
                 isDialogOpen = false
+                name = ""
+                selectedDate = "MM/dd/yyyy"
             },
             selectedDate = selectedDate,
             onDateChange = { newDate -> selectedDate = newDate },
@@ -88,7 +93,7 @@ fun SetlistManagerView(navController: NavHostController) {
         ConfirmDeleteDialog(
             onDismiss = { setlistToDelete = null },
             onConfirmDelete = {
-                viewModel.deleteSetlist(setlist.id!!)
+                viewModel.deleteSetlist(setlist.setlist.id)
                 setlistToDelete = null
             }
         )
@@ -99,10 +104,11 @@ fun SetlistManagerView(navController: NavHostController) {
             CircularProgressIndicator(color = Color.Gray)
         }
     } else {
-        Column(modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)) {
-
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
             // Header Row with title and create button
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -112,9 +118,7 @@ fun SetlistManagerView(navController: NavHostController) {
                 Text("Setlists", fontSize = 28.sp, fontWeight = FontWeight.Bold)
 
                 Button(
-                    onClick = {
-                        isDialogOpen = true // ✅ Open modal
-                    },
+                    onClick = { isDialogOpen = true },
                     border = BorderStroke(2.dp, Color.Black),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                     shape = RoundedCornerShape(10.dp)
@@ -188,7 +192,7 @@ fun SetlistManagerView(navController: NavHostController) {
                     SetlistItem(
                         setlist = setlist,
                         onEditClick = {
-                            navController.navigate("edit_setlist/${setlist.id}")
+                            navController.navigate("edit_setlist/${setlist.setlist.id}")
                         },
                         onDeleteClick = {
                             setlistToDelete = setlist
@@ -200,12 +204,11 @@ fun SetlistManagerView(navController: NavHostController) {
     }
 }
 
-
 @Composable
 fun SetlistItem(
-    setlist: Setlist,
-    onEditClick: (Setlist) -> Unit,
-    onDeleteClick: (Setlist) -> Unit
+    setlist: SetlistWithSongs,
+    onEditClick: (SetlistWithSongs) -> Unit,
+    onDeleteClick: (SetlistWithSongs) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -216,8 +219,17 @@ fun SetlistItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text(setlist.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text("Author's name", color = Color.Gray, fontSize = 14.sp) // You may bind real author name here
+            Text(setlist.setlist.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(
+                text = formatDateForDisplay(setlist.setlist.date),
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
+            Text(
+                text = "${setlist.songs.size} song${if (setlist.songs.size != 1) "s" else ""}",
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -228,5 +240,17 @@ fun SetlistItem(
                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
             }
         }
+    }
+}
+
+fun formatDateForDisplay(isoDate: String): String {
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+        val outputFormat = SimpleDateFormat("MM/dd/yyyy", Locale.US)
+        val date = inputFormat.parse(isoDate)
+        outputFormat.format(date ?: Date())
+    } catch (e: Exception) {
+        isoDate // Fallback to raw string
     }
 }

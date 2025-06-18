@@ -1,19 +1,18 @@
 package com.app.rehearsalcloud.api
 
 import com.app.rehearsalcloud.model.setlist.Setlist
-import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
 import retrofit2.Response
-import retrofit2.http.*
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
 
-interface SetlistApiService {
-
+interface SongApiService {
     // Fetch setlists
     @GET("Setlist")
     suspend fun getSetlists(): Response<List<Setlist>>
-
-    // Fetch setlists
-    @GET("Setlist/SetlistWithSongs")
-    suspend fun getSetlistsWithSongs(): Response<List<SetlistWithSongs>>
 
     // Create a setlist
     @POST("Setlist")
@@ -24,9 +23,6 @@ interface SetlistApiService {
 
     @GET("Setlist/{id}")
     suspend fun getSetlistById(@Path("id") id: Int): Response<Setlist>
-
-    @GET("Setlist/SetlistWithSongs/{id}")
-    suspend fun getSetlistWithSongsById(@Path("id") id: Int): Response<SetlistWithSongs>
 
     // Delete a setlist
     @DELETE("Setlist/{id}")

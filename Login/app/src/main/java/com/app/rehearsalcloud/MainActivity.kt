@@ -1,17 +1,16 @@
 package com.app.rehearsalcloud
 
 import android.os.Bundle
+
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,49 +30,48 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.*
+
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.DialogProperties
+
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
-import coil.compose.rememberAsyncImagePainter
-import com.app.rehearsalcloud.ui.setlist.SetlistManagerView
-import androidx.navigation.compose.composable
+
 import com.app.rehearsalcloud.ui.setlist.EditSetlistScreen
 import com.app.rehearsalcloud.ui.song.SongItem
+import com.app.rehearsalcloud.ui.setlist.SetlistManagerView
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,10 +91,9 @@ fun Navigate() {
         composable("home") {
             PlayerUI(navController)
         }
-        composable("setlist_manager") {
+        composable("setlist_library") {
             SetlistManagerView(navController)
         }
-
         composable("edit_setlist/{setlistId}") { backStackEntry ->
             val setlistId = backStackEntry.arguments?.getString("setlistId")?.toIntOrNull() ?: return@composable
             // You would ideally load the setlist here by the setlistId.
@@ -131,8 +128,9 @@ fun PlayerUI(navController: NavHostController) {
             BottomBar()
         }
         SidePanelButtons(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 150.dp),
-            onSetlistClick = { showSetlistPopup = true }
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 80.dp),
+            onSetlistClick = { showSetlistPopup = true },
+            onSongClick = {}
         )
     }
 }
@@ -283,12 +281,13 @@ fun BottomBar() {
 
 // SETLIST POP UP
 @Composable
-fun SidePanelButtons(modifier: Modifier = Modifier, onSetlistClick: () -> Unit) {
+fun SidePanelButtons(modifier: Modifier = Modifier, onSetlistClick: () -> Unit, onSongClick: () -> Unit) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         PanelButton(icon = Icons.Default.Menu, label = "Setlists", onClick = onSetlistClick)
+        PanelButton(icon = Icons.Default.AddCircleOutline, label = "Songs", onClick = onSongClick )
     }
 }
 
@@ -318,7 +317,7 @@ fun SetlistPopup(onDismiss: () -> Unit, navController: NavHostController) {
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.9f) // Use 90% of screen width
+                .fillMaxWidth(0.9f)
                 .wrapContentHeight()
                 .shadow(10.dp, shape = RoundedCornerShape(10.dp)),
             shape = RoundedCornerShape(10.dp),
@@ -329,14 +328,33 @@ fun SetlistPopup(onDismiss: () -> Unit, navController: NavHostController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(15.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Ensayo", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF333333))
-                    TextButton(onClick = { navController.navigate("setlist_manager") }) {
-                        Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFF00B8D4))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Setlists", color = Color(0xFF00B8D4), fontSize = 16.sp)
+                    Text(
+                        "Ensayo",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF333333)
+                    )
+                    Spacer(modifier = Modifier.weight(1f)) // Pushes buttons to the right
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { navController.navigate("song_library") }) {
+                            Icon(
+                                Icons.Default.AddCircleOutline,
+                                contentDescription = null,
+                                tint = Color(0xFF00B8D4)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add", color = Color(0xFF00B8D4), fontSize = 16.sp)
+                        }
+                        TextButton(onClick = { navController.navigate("setlist_library") }) {
+                            Icon(Icons.Default.Menu, contentDescription = null, tint = Color(0xFF00B8D4))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Setlists", color = Color(0xFF00B8D4), fontSize = 16.sp)
+                        }
                     }
                 }
                 HorizontalDivider(thickness = 1.dp, color = Color(0xFFEAEAEA))
