@@ -23,4 +23,7 @@ interface SetlistApiService {
     // Delete a setlist
     @DELETE("Setlist/{id}")
     suspend fun deleteSetlist(@Path("id") id: Int): Response<Unit>
+
+     @GET("Song/{id}")
+    suspend fun getSong(@Path("id") id: Int): Response<Song>
 }

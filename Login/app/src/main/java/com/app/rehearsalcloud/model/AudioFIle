@@ -1,0 +1,15 @@
+package com.app.rehearsalcloud.model
+
+import com.squareup.moshi.JsonClass
+
+
+@JsonClass(generateAdapter = true)
+data class AudioFile(
+    val id: Int,
+    val fileName: String,
+    val fileExtension: String,
+    val fileSize: Long,
+    val songId: Int,
+    val instrument: String,
+    val url: String
+)
