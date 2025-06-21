@@ -27,7 +27,7 @@ interface SongDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSong(song: Song)
 
-    @Query("DELETE FROM song WHERE id = :id")
+    @Query("DELETE FROM Song WHERE id = :id")
     suspend fun deleteSong(id: Int)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -35,4 +35,7 @@ interface SongDao {
 
     @Query("SELECT * FROM AudioFile WHERE songId = :songId")
     suspend fun getAudioFilesBySongId(songId: Int): List<AudioFile>
+
+    @Query("DELETE FROM Song")
+    suspend fun deleteAllSongs()
 }
