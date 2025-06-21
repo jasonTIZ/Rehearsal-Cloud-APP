@@ -23,8 +23,7 @@ class SongRepository(
 ) {
     suspend fun syncSongs() {
         try {
-            val songs = songApiService.getSongs()
-            val songEntities = songs.map { dto ->
+            val apiSongs = songApiService.getSongs().map { dto ->
                 Song(
                     id = dto.id,
                     songName = dto.songName,
@@ -36,7 +35,8 @@ class SongRepository(
                         .parse(dto.createdAt)?.time ?: 0L
                 )
             }
-            songDao.insertSongs(songEntities)
+            songDao.deleteAllSongs()      // Borra todas las canciones locales
+            songDao.insertSongs(apiSongs) // Inserta las nuevas canciones del API
         } catch (e: Exception) {
             Log.e("SongRepository", "Sync failed: ${e.message}")
             throw Exception("Failed to sync songs: ${e.message}")
@@ -253,13 +253,12 @@ class SongRepository(
     }
 
     suspend fun deleteSong(id: Int) {
-        try {
-            songApiService.deleteSong(id)
-            songDao.deleteSong(id)
-        } catch (e: Exception) {
-            Log.e("SongRepository", "Delete failed: ${e.message}")
-            throw Exception("Failed to delete song: ${e.message}")
-        }
+    try {
+        songApiService.deleteSong(id) // No esperes ningún body, solo llama
+        songDao.deleteSong(id)        // Borra localmente solo si no hubo excepción
+    } catch (e: Exception) {
+        Log.e("SongRepository", "Delete failed: ${e.message}")
+        throw Exception("Failed to delete song: ${e.message}")
     }
 
     suspend fun playAudioFile(songId: Int, audioId: Int, context: Context): MediaPlayer {
@@ -289,4 +288,5 @@ class SongRepository(
             throw e
         }
     }
+}
 }
