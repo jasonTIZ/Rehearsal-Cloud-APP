@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -113,6 +115,8 @@ fun SongManagerView(navController: NavController) {
                 tone = ""
                 coverImageFile = null
                 zipFile = null
+                // después de crear o editar
+                viewModel.loadSongs()
             },
             songName = songName,
             artist = artist,
@@ -159,6 +163,8 @@ fun SongManagerView(navController: NavController) {
                 tone = ""
                 coverImageFile = null
                 zipFile = null
+                // después de crear o editar
+                viewModel.loadSongs()
             },
             songName = songName,
             artist = artist,
@@ -181,6 +187,7 @@ fun SongManagerView(navController: NavController) {
             onConfirmDelete = {
                 viewModel.deleteSong(song.id)
                 songToDelete = null
+                viewModel.loadSongs() // <-- Actualiza la lista después de borrar
             }
         )
     }
@@ -378,7 +385,11 @@ fun SongDialog(
         onDismissRequest = { onDismiss() },
         title = { Text(if (isEditMode) "Edit Song" else "Create Song") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState()) // <-- Habilita scroll vertical
+                    .fillMaxWidth()
+            ) {
                 OutlinedTextField(
                     value = songName,
                     onValueChange = {
