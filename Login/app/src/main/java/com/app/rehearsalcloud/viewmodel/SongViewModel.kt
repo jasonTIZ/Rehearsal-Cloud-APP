@@ -1,21 +1,19 @@
 package com.app.rehearsalcloud.viewmodel
 
+import android.content.Context
+import android.media.MediaPlayer
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.app.rehearsalcloud.model.setlist.Setlist
 import com.app.rehearsalcloud.model.song.Song
-import com.app.rehearsalcloud.repository.SetlistRepository
 import com.app.rehearsalcloud.repository.SongRepository
 import kotlinx.coroutines.launch
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
 class SongViewModel(
     val repository: SongRepository
@@ -28,6 +26,10 @@ class SongViewModel(
         private set
     var selectedSong by mutableStateOf<Song?>(null)
         private set
+
+    private val _error = MutableLiveData<String>()
+    val error: LiveData<String> = _error
+    private var mediaPlayer: MediaPlayer? = null
 
     fun loadSongs() {
         viewModelScope.launch {
@@ -107,5 +109,37 @@ class SongViewModel(
                 isLoading = false
             }
         }
+    }
+
+    fun playAudioFile(songId: Int, audioId: Int, context: Context) {
+        viewModelScope.launch {
+            try {
+                mediaPlayer?.release() // Release existing player
+                mediaPlayer = repository.playAudioFile(songId, audioId, context).apply {
+                    setOnCompletionListener {
+                        release()
+                        mediaPlayer = null
+                    }
+                    setOnErrorListener { mp, what, extra ->
+                        _error.postValue("Playback error: what=$what, extra=$extra")
+                        release()
+                        mediaPlayer = null
+                        true
+                    }
+                }
+            } catch (e: Exception) {
+                _error.postValue("Failed to play audio: ${e.message}")
+            }
+        }
+    }
+
+    fun stopPlayback() {
+        mediaPlayer?.release()
+        mediaPlayer = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopPlayback()
     }
 }

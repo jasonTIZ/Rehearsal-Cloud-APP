@@ -14,6 +14,9 @@ interface SetlistApiService {
     @POST("Setlist")
     suspend fun createSetlist(@Body createDto: UpdateSetlistRequestDto): SetlistDto
 
+    @GET("Setlist/{id}")
+    suspend fun getSetlistById(@Path("id") id: Int): SetlistDto
+
     // Delete a setlist
     @DELETE("Setlist/{id}")
     suspend fun deleteSetlist(@Path("id") id: Int): Response<Unit>

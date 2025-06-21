@@ -21,6 +21,6 @@ data class AudioFile(
     val fileExtension: String,
     val fileSize: Long,
     val songId: Int,
-    val fileUrl: String,
+    val fileUrl: String?,
     val localPath: String?
 )

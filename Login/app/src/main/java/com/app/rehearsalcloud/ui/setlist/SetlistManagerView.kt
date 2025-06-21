@@ -1,8 +1,8 @@
 package com.app.rehearsalcloud.ui.setlist
 
-import CreateSetlistDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +21,9 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,14 +48,12 @@ import androidx.navigation.NavHostController
 import com.app.rehearsalcloud.api.RetrofitClient
 import com.app.rehearsalcloud.model.AppDatabase
 import com.app.rehearsalcloud.model.setlist.Setlist
-import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
 import com.app.rehearsalcloud.repository.SetlistRepository
 import com.app.rehearsalcloud.viewmodel.SetlistViewModel
 import com.app.rehearsalcloud.viewmodel.SetlistViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @Composable
 fun SetlistManagerView(navController: NavHostController) {
@@ -88,7 +84,7 @@ fun SetlistManagerView(navController: NavHostController) {
 
     if (isDialogOpen) {
         EditSetlistDialog(
-            setlistId = null, // Null for new setlist
+            setlistId = null,
             onDismiss = {
                 isDialogOpen = false
                 name = ""
@@ -221,6 +217,9 @@ fun SetlistManagerView(navController: NavHostController) {
                         },
                         onDeleteClick = {
                             setlistToDelete = setlist
+                        },
+                        onSelectClick = {
+                            navController.navigate("home?setlistId=${setlist.id}&openPopup=true")
                         }
                     )
                 }
@@ -233,12 +232,14 @@ fun SetlistManagerView(navController: NavHostController) {
 fun SetlistItem(
     setlist: Setlist,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onSelectClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFFF5F5F5), RoundedCornerShape(10.dp))
+            .clickable { onSelectClick() }
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

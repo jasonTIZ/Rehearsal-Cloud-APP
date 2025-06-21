@@ -6,15 +6,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.app.rehearsalcloud.api.RetrofitClient.setlistApiService
 import com.app.rehearsalcloud.model.setlist.Setlist
 import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
+import com.app.rehearsalcloud.model.setlist.SetlistWithSongsWithAudioFile
 import com.app.rehearsalcloud.repository.SetlistRepository
 import com.app.rehearsalcloud.ui.setlist.formatDateForDisplay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 class SetlistViewModel(
     private val repository: SetlistRepository
@@ -26,6 +28,9 @@ class SetlistViewModel(
     var errorMessage by mutableStateOf<String?>(null)
     var selectedSetlist by mutableStateOf<SetlistWithSongs?>(null)
         private set
+
+    private val _selectedSetlistWithSongs = MutableStateFlow<SetlistWithSongsWithAudioFile?>(null)
+    val selectedSetlistWithSongs: StateFlow<SetlistWithSongsWithAudioFile?> = _selectedSetlistWithSongs
 
     fun validateDate(dateString: String): Boolean {
         return try {
@@ -164,16 +169,17 @@ class SetlistViewModel(
         }
     }
 
-    private fun convertToIsoFormat(dateLong: Long): String {
-        return try {
-            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            outputFormat.timeZone = TimeZone.getTimeZone("UTC")
-            outputFormat.format(Date(dateLong))
+    suspend fun loadSetlistWithSongs(setlistId: Int) {
+        try {
+            // Llama a la API y actualiza Room
+            val apiResponse = setlistApiService.getSetlistById(setlistId)
+            repository.updateLocalDatabaseFromSetlistDto(apiResponse)
+
+            // Ahora sí busca en Room y muestra
+            val setlistWithSongs = repository.getSetlistWithSongsWithAudioFiles(setlistId)
+            _selectedSetlistWithSongs.value = setlistWithSongs
         } catch (e: Exception) {
-            Log.e("SetlistViewModel", "Date formatting failed: ${e.localizedMessage}", e)
-            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            outputFormat.timeZone = TimeZone.getTimeZone("UTC")
-            outputFormat.format(Date())
+            errorMessage = ("Failed to load setlist: ${e.message}")
         }
     }
 }

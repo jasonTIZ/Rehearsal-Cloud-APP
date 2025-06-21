@@ -20,6 +20,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.app.rehearsalcloud.ui.theme.EventFinderTheme
 import com.app.rehearsalcloud.viewmodel.AuthViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 
 class RegisterActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
@@ -101,7 +103,15 @@ fun RegisterScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        )
+            {
+            Image(
+                painter = painterResource(id = R.drawable.logo_cloud),
+                contentDescription = "Logo de Rehearsal Cloud",
+                modifier = Modifier
+                    .size(100.dp)
+                    .padding(bottom = 8.dp)
+            )
             Text(
                 text = "Rehearsal Cloud",
                 style = MaterialTheme.typography.headlineMedium,
