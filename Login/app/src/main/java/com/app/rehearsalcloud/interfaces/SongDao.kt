@@ -15,23 +15,24 @@ import com.app.rehearsalcloud.model.song.SongWithAudioFiles
 // DAO for Song-related operations
 @Dao
 interface SongDao {
+    @Query("SELECT * FROM song")
+    suspend fun getAllSongs(): List<Song>
+
+    @Query("SELECT * FROM song WHERE id = :id")
+    suspend fun getSongById(id: Int): Song?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSongs(songs: List<Song>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSong(song: Song)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAudioFile(audioFile: AudioFile)
+    @Query("DELETE FROM song WHERE id = :id")
+    suspend fun deleteSong(id: Int)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSetlist(setlist: Setlist)
+    suspend fun insertAudioFiles(audioFiles: List<AudioFile>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSetlistSong(setlistSongCrossRef: SetlistSongCrossRef)
-
-    @Transaction
-    @Query("SELECT * FROM song WHERE id = :songId")
-    suspend fun getSongWithAudioFiles(songId: Int): List<SongWithAudioFiles>
-
-    @Query("SELECT * FROM Song")
-    suspend fun getAllSongs(): List<Song>
+    @Query("SELECT * FROM AudioFile WHERE songId = :songId")
+    suspend fun getAudioFilesBySongId(songId: Int): List<AudioFile>
 }

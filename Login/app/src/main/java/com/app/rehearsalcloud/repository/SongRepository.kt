@@ -1,26 +1,238 @@
 package com.app.rehearsalcloud.repository
 
-import android.content.Context
-import com.app.rehearsalcloud.model.song.Song
+import android.util.Log
+import com.app.rehearsalcloud.api.SongApiService
 import com.app.rehearsalcloud.interfaces.SongDao
-import com.app.rehearsalcloud.model.song.SongWithAudioFiles
-import com.app.rehearsalcloud.utils.ZipUtils
+import com.app.rehearsalcloud.model.audiofile.AudioFile
+import com.app.rehearsalcloud.model.song.Song
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Locale
 
-// Example usage in a ViewModel or Repository
-class SongRepository(private val songDao: SongDao, private val context: Context) {
-    suspend fun saveSongFromZip(song: Song, zipFile: File) {
-        // Insert the Song into the database
-        songDao.insertSong(song)
-
-        // Unzip and save audio files
-        val audioFiles = ZipUtils.unzipSongFiles(zipFile, song.id, context)
-        audioFiles.forEach { audioFile ->
-            songDao.insertAudioFile(audioFile)
+class SongRepository(
+    private val songDao: SongDao,
+    private val songApiService: SongApiService
+) {
+    suspend fun syncSongs() {
+        try {
+            val songs = songApiService.getSongs()
+            val songEntities = songs.map { dto ->
+                Song(
+                    id = dto.id,
+                    songName = dto.songName,
+                    artist = dto.artist,
+                    bpm = dto.bpm,
+                    tone = dto.tone,
+                    coverImage = dto.coverImage,
+                    createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                        .parse(dto.createdAt)?.time ?: 0L
+                )
+            }
+            songDao.insertSongs(songEntities)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Sync failed: ${e.message}")
+            throw Exception("Failed to sync songs: ${e.message}")
         }
     }
 
-    suspend fun getSongWithAudioFiles(songId: Int): List<SongWithAudioFiles> {
-        return songDao.getSongWithAudioFiles(songId)
+    suspend fun getSongs(): List<Song> {
+        return songDao.getAllSongs()
+    }
+
+    suspend fun getSongById(id: Int, fetchAudio: Boolean = false): Song {
+        val localSong = songDao.getSongById(id)
+        if (localSong != null && !fetchAudio) {
+            return localSong
+        }
+        try {
+            val songDto = songApiService.getSongById(id)
+            val songEntity = Song(
+                id = songDto.id,
+                songName = songDto.songName,
+                artist = songDto.artist,
+                bpm = songDto.bpm,
+                tone = songDto.tone,
+                coverImage = songDto.coverImage,
+                createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                    .parse(songDto.createdAt)?.time ?: 0L
+            )
+            songDao.insertSong(songEntity)
+
+            if (fetchAudio && songDto.audioFiles != null) {
+                val audioFileEntities = songDto.audioFiles.map { af ->
+                    AudioFile(
+                        id = af.id,
+                        fileName = af.fileName,
+                        fileExtension = af.fileExtension,
+                        fileSize = af.fileSize,
+                        songId = af.songId,
+                        fileUrl = af.fileUrl,
+                        localPath = null
+                    )
+                }
+                songDao.insertAudioFiles(audioFileEntities)
+            }
+            return songEntity
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Fetch failed: ${e.message}")
+            throw Exception("Failed to fetch song: ${e.message}")
+        }
+    }
+
+    suspend fun getAudioFilesBySongId(songId: Int): List<AudioFile> {
+        return songDao.getAudioFilesBySongId(songId)
+    }
+
+    suspend fun downloadAudioFile(songId: Int, audioId: Int, outputDir: File): File {
+        try {
+            val response = songApiService.downloadAudioFile(songId, audioId)
+            if (!response.isSuccessful) {
+                throw Exception("Failed to download audio file: ${response.code()}")
+            }
+            val audioFile = songDao.getAudioFilesBySongId(songId).find { it.id == audioId }
+                ?: throw Exception("Audio file metadata not found")
+            val file = File(outputDir, "${audioFile.fileName}${audioFile.fileExtension}")
+            val byteString = response.body() ?: throw Exception("Response body is null")
+
+            // Write ByteString to file
+            withContext(Dispatchers.IO) {
+                FileOutputStream(file).use { outputStream ->
+                    outputStream.write(byteString.toByteArray())
+                }
+            }
+
+            songDao.insertAudioFiles(
+                listOf(
+                    audioFile.copy(localPath = file.absolutePath)
+                )
+            )
+            return file
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Download failed: ${e.message}")
+            throw Exception("Failed to download audio: ${e.message}")
+        }
+    }
+
+    suspend fun createSong(song: Song, coverImageFile: File, zipFile: File) {
+        try {
+            val coverImagePart = MultipartBody.Part.createFormData(
+                "CoverImage",
+                coverImageFile.name,
+                coverImageFile.asRequestBody("image/*".toMediaTypeOrNull())
+            )
+            val zipFilePart = MultipartBody.Part.createFormData(
+                "ZipFile",
+                zipFile.name,
+                zipFile.asRequestBody("application/zip".toMediaTypeOrNull())
+            )
+            val createdSongDto = songApiService.createSong(
+                songName = song.songName,
+                artist = song.artist,
+                bpm = song.bpm,
+                tone = song.tone,
+                coverImage = coverImagePart,
+                zipFile = zipFilePart
+            )
+            val createdSong = Song(
+                id = createdSongDto.id,
+                songName = createdSongDto.songName,
+                artist = createdSongDto.artist,
+                bpm = createdSongDto.bpm,
+                tone = createdSongDto.tone,
+                coverImage = createdSongDto.coverImage,
+                createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                    .parse(createdSongDto.createdAt)?.time ?: 0L
+            )
+            songDao.insertSong(createdSong)
+            createdSongDto.audioFiles?.let { audioFiles ->
+                val audioFileEntities = audioFiles.map { af ->
+                    AudioFile(
+                        id = af.id,
+                        fileName = af.fileName,
+                        fileExtension = af.fileExtension,
+                        fileSize = af.fileSize,
+                        songId = af.songId,
+                        fileUrl = af.fileUrl,
+                        localPath = null
+                    )
+                }
+                songDao.insertAudioFiles(audioFileEntities)
+            }
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Create failed: ${e.message}")
+            throw Exception("Failed to create song: ${e.message}")
+        }
+    }
+
+    suspend fun updateSong(song: Song, coverImageFile: File?, zipFile: File?) {
+        try {
+            val coverImagePart = coverImageFile?.let {
+                MultipartBody.Part.createFormData(
+                    "CoverImage",
+                    it.name,
+                    it.asRequestBody("image/*".toMediaTypeOrNull())
+                )
+            }
+            val zipFilePart = zipFile?.let {
+                MultipartBody.Part.createFormData(
+                    "ZipFile",
+                    it.name,
+                    it.asRequestBody("application/zip".toMediaTypeOrNull())
+                )
+            }
+            val updatedSongDto = songApiService.updateSong(
+                id = song.id,
+                songName = song.songName,
+                artist = song.artist,
+                bpm = song.bpm,
+                tone = song.tone,
+                coverImage = coverImagePart,
+                zipFile = zipFilePart
+            )
+            val updatedSong = Song(
+                id = updatedSongDto.id,
+                songName = updatedSongDto.songName,
+                artist = updatedSongDto.artist,
+                bpm = updatedSongDto.bpm,
+                tone = updatedSongDto.tone,
+                coverImage = updatedSongDto.coverImage,
+                createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                    .parse(updatedSongDto.createdAt)?.time ?: 0L
+            )
+            songDao.insertSong(updatedSong)
+            updatedSongDto.audioFiles?.let { audioFiles ->
+                val audioFileEntities = audioFiles.map { af ->
+                    AudioFile(
+                        id = af.id,
+                        fileName = af.fileName,
+                        fileExtension = af.fileExtension,
+                        fileSize = af.fileSize,
+                        songId = af.songId,
+                        fileUrl = af.fileUrl,
+                        localPath = null
+                    )
+                }
+                songDao.insertAudioFiles(audioFileEntities)
+            }
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Update failed: ${e.message}")
+            throw Exception("Failed to update song: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSong(id: Int) {
+        try {
+            songApiService.deleteSong(id)
+            songDao.deleteSong(id)
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Delete failed: ${e.message}")
+            throw Exception("Failed to delete song: ${e.message}")
+        }
     }
 }

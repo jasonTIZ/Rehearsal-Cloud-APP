@@ -15,11 +15,12 @@ import com.app.rehearsalcloud.model.song.Song
     )]
 )
 data class AudioFile(
-    @PrimaryKey
+    @PrimaryKey(autoGenerate = false)
     val id: Int,
     val fileName: String,
-    val filePath: String,
     val fileExtension: String,
     val fileSize: Long,
-    val songId: Int
+    val songId: Int,
+    val fileUrl: String,
+    val localPath: String?
 )

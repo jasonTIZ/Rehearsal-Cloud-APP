@@ -1,5 +1,8 @@
 package com.app.rehearsalcloud.api
 
+import com.app.rehearsalcloud.dtos.SetlistDto
+import com.app.rehearsalcloud.dtos.SetlistWithoutSongsDto
+import com.app.rehearsalcloud.dtos.UpdateSetlistRequestDto
 import com.app.rehearsalcloud.model.setlist.Setlist
 import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
 import retrofit2.Response
@@ -7,28 +10,20 @@ import retrofit2.http.*
 
 interface SetlistApiService {
 
-    // Fetch setlists
-    @GET("Setlist")
-    suspend fun getSetlists(): Response<List<Setlist>>
-
-    // Fetch setlists
-    @GET("Setlist/SetlistWithSongs")
-    suspend fun getSetlistsWithSongs(): Response<List<SetlistWithSongs>>
-
     // Create a setlist
     @POST("Setlist")
-    suspend fun createSetlist(@Body createSetlistRequest: Setlist): Response<Setlist>
-
-    @PUT("Setlist/{id}")
-    suspend fun updateSetlist(@Path("id") id: Int, @Body setlist: Setlist): Response<Setlist>
-
-    @GET("Setlist/{id}")
-    suspend fun getSetlistById(@Path("id") id: Int): Response<Setlist>
-
-    @GET("Setlist/SetlistWithSongs/{id}")
-    suspend fun getSetlistWithSongsById(@Path("id") id: Int): Response<SetlistWithSongs>
+    suspend fun createSetlist(@Body createDto: UpdateSetlistRequestDto): SetlistDto
 
     // Delete a setlist
     @DELETE("Setlist/{id}")
     suspend fun deleteSetlist(@Path("id") id: Int): Response<Unit>
+
+    @GET("Setlist")
+    suspend fun getSetlistsWithoutSongs(): List<SetlistWithoutSongsDto>
+
+    @PUT("Setlist/{id}")
+    suspend fun updateSetlist(
+        @Path("id") id: Int,
+        @Body updateSetlistDto: UpdateSetlistRequestDto
+    ): SetlistDto // Assuming SetlistDto includes songs and audio files
 }

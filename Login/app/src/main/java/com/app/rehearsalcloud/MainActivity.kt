@@ -72,6 +72,7 @@ import androidx.navigation.compose.rememberNavController
 import com.app.rehearsalcloud.ui.setlist.EditSetlistScreen
 import com.app.rehearsalcloud.ui.song.SongItem
 import com.app.rehearsalcloud.ui.setlist.SetlistManagerView
+import com.app.rehearsalcloud.ui.song.SongManagerView
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,10 +95,16 @@ fun Navigate() {
         composable("setlist_library") {
             SetlistManagerView(navController)
         }
+        composable("song_library") {
+            SongManagerView(navController)
+        }
         composable("edit_setlist/{setlistId}") { backStackEntry ->
             val setlistId = backStackEntry.arguments?.getString("setlistId")?.toIntOrNull() ?: return@composable
             // You would ideally load the setlist here by the setlistId.
-            EditSetlistScreen(setlistId = setlistId)
+            EditSetlistScreen(
+                setlistId = setlistId,
+                navController = navController
+            )
         }
     }
 }
@@ -130,7 +137,7 @@ fun PlayerUI(navController: NavHostController) {
         SidePanelButtons(
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 80.dp),
             onSetlistClick = { showSetlistPopup = true },
-            onSongClick = {}
+            onSongClick = { navController.navigate("song_library")}
         )
     }
 }

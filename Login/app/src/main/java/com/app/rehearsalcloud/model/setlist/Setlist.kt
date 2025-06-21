@@ -10,5 +10,5 @@ data class Setlist(
     @PrimaryKey
     val id: Int,
     val name: String,
-    val date: String
+    val date: Long
 )

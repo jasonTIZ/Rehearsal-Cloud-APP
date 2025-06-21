@@ -9,34 +9,45 @@ import androidx.lifecycle.viewModelScope
 import com.app.rehearsalcloud.model.setlist.Setlist
 import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
 import com.app.rehearsalcloud.repository.SetlistRepository
+import com.app.rehearsalcloud.ui.setlist.formatDateForDisplay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-class SetlistViewModel(private val repository: SetlistRepository = SetlistRepository()) : ViewModel() {
-
-    var setlists by mutableStateOf<List<SetlistWithSongs>>(emptyList())
+class SetlistViewModel(
+    private val repository: SetlistRepository
+) : ViewModel() {
+    var setlists by mutableStateOf<List<Setlist>>(emptyList())
         private set
-
     var isLoading by mutableStateOf(false)
         private set
-
     var errorMessage by mutableStateOf<String?>(null)
+    var selectedSetlist by mutableStateOf<SetlistWithSongs?>(null)
         private set
 
-    // Load setlists from API
+    fun validateDate(dateString: String): Boolean {
+        return try {
+            val inputFormat = SimpleDateFormat("MM/dd/yyyy", Locale.US)
+            inputFormat.isLenient = false
+            inputFormat.parse(dateString) != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun loadSetlists() {
         viewModelScope.launch {
             isLoading = true
-            Log.d("API", "Loading setlists...")
+            Log.d("SetlistViewModel", "Loading setlists...")
             try {
-                setlists = repository.getSetlistsWithSongs()
-                Log.d("API", "Setlists loaded: ${setlists.size} items")
+                repository.syncSetlists()
+                setlists = repository.getSetlists()
+                Log.d("SetlistViewModel", "Setlists loaded: ${setlists.size} items")
             } catch (e: Exception) {
                 errorMessage = e.message
-                Log.e("API", "Failed to load setlists: ${e.localizedMessage}", e)
+                Log.e("SetlistViewModel", "Failed to load setlists: ${e.localizedMessage}", e)
             } finally {
                 isLoading = false
             }
@@ -44,60 +55,82 @@ class SetlistViewModel(private val repository: SetlistRepository = SetlistReposi
     }
 
     fun createSetlist(name: String, inputDate: String) {
-        // Parse from MM/dd/yyyy to ISO format
-        val isoDate = convertToIsoFormat(inputDate)
-
-        val newSetlist = Setlist(
-            id = 0, // Room will auto-generate or API will assign
-            name = name,
-            date = isoDate
-        )
-
-        Log.d("API", "Creating setlist: $newSetlist")
-
         viewModelScope.launch {
+            isLoading = true
             try {
+                if (!validateDate(inputDate)) {
+                    throw IllegalArgumentException("Invalid date format. Use MM/dd/yyyy")
+                }
+                val dateLong = convertToTimestamp(inputDate)
+                val newSetlist = Setlist(id = 0, name = name, date = dateLong)
+                Log.d("SetlistViewModel", "Creating setlist: $newSetlist")
                 repository.createSetlist(newSetlist)
-                Log.d("API", "Setlist created successfully")
                 loadSetlists()
+                Log.d("SetlistViewModel", "Setlist created successfully")
             } catch (e: Exception) {
-                Log.e("API", "Failed to create setlist: ${e.localizedMessage}", e)
                 errorMessage = e.message
+                Log.e("SetlistViewModel", "Failed to create setlist: ${e.localizedMessage}", e)
+            } finally {
+                isLoading = false
             }
         }
     }
 
-    fun updateSetlist(id: Int, setlist: SetlistWithSongs) {
+    fun updateSetlist(id: Int, name: String, inputDate: String, songIds: List<Int>? = emptyList()) {
         viewModelScope.launch {
+            isLoading = true
             try {
-                // Ensure date is in ISO format
-                val formattedDate = convertToIsoFormat(setlist.setlist.date)
-                val updated = setlist.setlist.copy(
-                    id = id,
-                    date = formattedDate
-                )
-                repository.updateSetlist(id, updated)
-                // Update local list
-                setlists = setlists.map { if (it.setlist.id == id) updated else it } as List<SetlistWithSongs>
+                if (!validateDate(inputDate)) {
+                    throw IllegalArgumentException("Invalid date format. Use MM/dd/yyyy")
+                }
+                val dateLong = convertToTimestamp(inputDate)
+                val safeSongIds = songIds ?: emptyList()
+                Log.d("SetlistViewModel", "Updating setlist: id=$id, name=$name, date=$inputDate, songIds=$safeSongIds")
+                repository.updateSetlist(id, name, dateLong, safeSongIds)
+                setlists = repository.getSetlists()
+                Log.d("SetlistViewModel", "Setlist updated successfully")
             } catch (e: Exception) {
                 errorMessage = e.message
-                Log.e("API", "Failed to update setlist: ${e.localizedMessage}", e)
+                Log.e("SetlistViewModel", "Failed to update setlist: ${e.localizedMessage}", e)
+            } finally {
+                isLoading = false
             }
         }
     }
 
-    var selectedSetlist by mutableStateOf<SetlistWithSongs?>(null)
-        private set
+    // New method to update setlist with SetlistWithSongs
+    fun updateSetlistWithSongs(setlistWithSongs: SetlistWithSongs) {
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val setlist = setlistWithSongs.setlist
+                val songIds = setlistWithSongs.songs.map { it.id }
+                if (!validateDate(formatDateForDisplay(setlist.date))) {
+                    throw IllegalArgumentException("Invalid date format. Use MM/dd/yyyy")
+                }
+                Log.d("SetlistViewModel", "Updating setlist with songs: id=${setlist.id}, name=${setlist.name}, date=${setlist.date}, songIds=$songIds")
+                repository.updateSetlist(setlist.id, setlist.name, setlist.date, songIds)
+                setlists = repository.getSetlists()
+                selectedSetlist = setlistWithSongs // Update selected setlist
+                Log.d("SetlistViewModel", "Setlist with songs updated successfully")
+            } catch (e: Exception) {
+                errorMessage = e.message
+                Log.e("SetlistViewModel", "Failed to update setlist with songs: ${e.localizedMessage}", e)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
     fun getSetlistById(id: Int) {
         viewModelScope.launch {
             isLoading = true
             try {
                 selectedSetlist = repository.getSetlistWithSongsById(id)
-                Log.d("API", "Setlist loaded: $selectedSetlist")
+                Log.d("SetlistViewModel", "Setlist loaded: $selectedSetlist")
             } catch (e: Exception) {
                 errorMessage = e.message
-                Log.e("API", "Failed to load setlist: ${e.localizedMessage}", e)
+                Log.e("SetlistViewModel", "Failed to load setlist: ${e.localizedMessage}", e)
             } finally {
                 isLoading = false
             }
@@ -106,28 +139,39 @@ class SetlistViewModel(private val repository: SetlistRepository = SetlistReposi
 
     fun deleteSetlist(id: Int) {
         viewModelScope.launch {
+            isLoading = true
             try {
                 repository.deleteSetlist(id)
-                setlists = setlists.filter { it.setlist.id != id }
-                Log.d("API", "Setlist deleted: $id")
+                setlists = setlists.filter { it.id != id }
+                Log.d("SetlistViewModel", "Setlist deleted: $id")
             } catch (e: Exception) {
                 errorMessage = e.message
-                Log.e("API", "Failed to delete setlist: ${e.localizedMessage}", e)
+                Log.e("SetlistViewModel", "Failed to delete setlist: ${e.localizedMessage}", e)
+            } finally {
+                isLoading = false
             }
         }
     }
 
-    private fun convertToIsoFormat(dateString: String): String {
+    private fun convertToTimestamp(dateString: String): Long {
         return try {
             val inputFormat = SimpleDateFormat("MM/dd/yyyy", Locale.US)
-            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-            outputFormat.timeZone = TimeZone.getTimeZone("UTC")
-            val parsedDate = inputFormat.parse(dateString)
-            outputFormat.format(parsedDate ?: Date())
+            inputFormat.isLenient = false
+            inputFormat.parse(dateString)?.time ?: System.currentTimeMillis()
         } catch (e: Exception) {
             Log.e("SetlistViewModel", "Date parsing failed: ${e.localizedMessage}", e)
-            // Fallback to current date in ISO format
-            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            System.currentTimeMillis()
+        }
+    }
+
+    private fun convertToIsoFormat(dateLong: Long): String {
+        return try {
+            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            outputFormat.timeZone = TimeZone.getTimeZone("UTC")
+            outputFormat.format(Date(dateLong))
+        } catch (e: Exception) {
+            Log.e("SetlistViewModel", "Date formatting failed: ${e.localizedMessage}", e)
+            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
             outputFormat.timeZone = TimeZone.getTimeZone("UTC")
             outputFormat.format(Date())
         }

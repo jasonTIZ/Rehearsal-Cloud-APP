@@ -24,6 +24,5 @@ import com.app.rehearsalcloud.model.song.Song
 )
 data class SetlistSongCrossRef(
     val setlistId: Int,
-    val songId: Int,
-    val order: Int
+    val songId: Int
 )

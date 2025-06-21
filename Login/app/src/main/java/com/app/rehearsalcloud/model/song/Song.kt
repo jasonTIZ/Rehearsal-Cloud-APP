@@ -13,5 +13,5 @@ data class Song(
     val bpm: Int,
     val tone: String,
     val coverImage: String?, // Nullable to handle cases where no cover image is provided
-    val createdAt: String
+    val createdAt: Long
 )
