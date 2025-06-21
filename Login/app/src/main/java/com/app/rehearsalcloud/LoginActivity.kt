@@ -20,6 +20,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.app.rehearsalcloud.ui.theme.EventFinderTheme
 import com.app.rehearsalcloud.viewmodel.AuthViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+
 
 class LoginActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
@@ -87,6 +90,16 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Image(
+                painter = painterResource(id = R.drawable.logo_cloud),
+                contentDescription = "Logo de Rehearsal Cloud",
+                modifier = Modifier
+                    .size(100.dp)
+                    .padding(bottom = 8.dp)
+            )
+
+            // Título debajo de la imagen
             Text(
                 text = "Rehearsal Cloud",
                 style = MaterialTheme.typography.headlineMedium,
@@ -109,7 +122,7 @@ fun LoginScreen(
                 label = { Text("Contraseña") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = { 
+                trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.Visibility
