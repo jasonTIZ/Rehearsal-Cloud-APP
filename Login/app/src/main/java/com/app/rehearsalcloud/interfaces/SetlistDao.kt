@@ -5,9 +5,11 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.app.rehearsalcloud.model.audiofile.AudioFile
 import com.app.rehearsalcloud.model.setlist.Setlist
 import com.app.rehearsalcloud.model.setlist.SetlistSongCrossRef
 import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
+import com.app.rehearsalcloud.model.setlist.SetlistWithSongsWithAudioFile
 import com.app.rehearsalcloud.model.song.Song
 
 @Dao
@@ -21,6 +23,12 @@ interface SetlistDao {
     @Transaction
     @Query("SELECT * FROM setlist WHERE id = :id")
     suspend fun getSetlistWithSongsById(id: Int): SetlistWithSongs?
+
+
+    // Fetch a specific setlist with songs by ID
+    @Transaction
+    @Query("SELECT * FROM setlist WHERE id = :id")
+    suspend fun getSetlistWithSongsWithAudioFiles(id: Int): SetlistWithSongsWithAudioFile?
 
     // Fetch all setlists with their associated songs
     @Transaction
@@ -43,4 +51,7 @@ interface SetlistDao {
     // Insert or update a list of songs
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongs(songs: List<Song>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAudioFiles(songs: List<AudioFile>)
 }

@@ -1,13 +1,14 @@
 package com.app.rehearsalcloud.repository
 
-import com.app.rehearsalcloud.api.RetrofitClient
 import com.app.rehearsalcloud.api.SetlistApiService
 import com.app.rehearsalcloud.dtos.SetlistDto
 import com.app.rehearsalcloud.dtos.UpdateSetlistRequestDto
 import com.app.rehearsalcloud.interfaces.SetlistDao
+import com.app.rehearsalcloud.model.audiofile.AudioFile
 import com.app.rehearsalcloud.model.setlist.Setlist
 import com.app.rehearsalcloud.model.setlist.SetlistSongCrossRef
 import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
+import com.app.rehearsalcloud.model.setlist.SetlistWithSongsWithAudioFile
 import com.app.rehearsalcloud.model.song.Song
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,8 +47,8 @@ class SetlistRepository(
     }
 
         // Get setlists with songs from Room
-        suspend fun getSetlistsWithSongs(): List<SetlistWithSongs> {
-            return setlistDao.getAllSetlistsWithSongs()
+        suspend fun getSetlistWithSongsWithAudioFiles(setlistId: Int): SetlistWithSongsWithAudioFile? {
+            return setlistDao.getSetlistWithSongsWithAudioFiles(setlistId)
         }
 
         // Update setlist locally and sync with server
@@ -98,7 +99,6 @@ class SetlistRepository(
                 setlistDao.deleteSetlistSongs(setlistDto.id)
                 setlistDao.insertSetlistSongs(setlistSongEntities)
 
-                // Optionally update songs
                 val songEntities = setlistSongs.mapNotNull { ss ->
                     ss.song?.let { songDto ->
                         Song(
@@ -114,11 +114,27 @@ class SetlistRepository(
                     }
                 }
                 setlistDao.insertSongs(songEntities)
+
+                // Handle audio files
+                setlistSongs.forEach { ss ->
+                    ss.song?.audioFiles?.filter { it.fileUrl != null }?.forEach { af ->
+                        val audioFileEntity = AudioFile(
+                            id = af.id,
+                            fileName = af.fileName,
+                            fileExtension = af.fileExtension,
+                            fileSize = af.fileSize,
+                            songId = af.songId,
+                            fileUrl = af.fileUrl,
+                            localPath = null
+                        )
+                        setlistDao.insertAudioFiles(listOf(audioFileEntity))
+                    }
+                }
             }
         }
 
-    // Create a new setlist
-    suspend fun createSetlist(setlist: Setlist) {
+        // Create a new setlist
+        suspend fun createSetlist(setlist: Setlist) {
         try {
             val createDto = UpdateSetlistRequestDto(
                 name = setlist.name,

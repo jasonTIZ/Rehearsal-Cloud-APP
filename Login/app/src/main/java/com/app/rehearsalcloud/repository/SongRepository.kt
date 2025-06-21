@@ -1,5 +1,7 @@
 package com.app.rehearsalcloud.repository
 
+import android.content.Context
+import android.media.MediaPlayer
 import android.util.Log
 import com.app.rehearsalcloud.api.SongApiService
 import com.app.rehearsalcloud.interfaces.SongDao
@@ -91,19 +93,43 @@ class SongRepository(
 
     suspend fun downloadAudioFile(songId: Int, audioId: Int, outputDir: File): File {
         try {
+            val audioFile = songDao.getAudioFilesBySongId(songId).find { it.id == audioId }
+                ?: run {
+                    val songDto = songApiService.getSongById(songId)
+                    songDto.audioFiles?.find { it.id == audioId }?.let { af ->
+                        if (af.fileUrl == null) {
+                            throw Exception("Audio file URL is null for audioId=$audioId")
+                        }
+                        val audioFileEntity = AudioFile(
+                            id = af.id,
+                            fileName = af.fileName,
+                            fileExtension = af.fileExtension,
+                            fileSize = af.fileSize,
+                            songId = af.songId,
+                            fileUrl = af.fileUrl,
+                            localPath = null
+                        )
+                        songDao.insertAudioFiles(listOf(audioFileEntity))
+                        audioFileEntity
+                    } ?: throw Exception("Audio file metadata not found for ID $audioId")
+                }
+
+            if (audioFile.localPath != null && File(audioFile.localPath).exists()) {
+                return File(audioFile.localPath)
+            }
+
             val response = songApiService.downloadAudioFile(songId, audioId)
             if (!response.isSuccessful) {
                 throw Exception("Failed to download audio file: ${response.code()}")
             }
-            val audioFile = songDao.getAudioFilesBySongId(songId).find { it.id == audioId }
-                ?: throw Exception("Audio file metadata not found")
-            val file = File(outputDir, "${audioFile.fileName}${audioFile.fileExtension}")
-            val byteString = response.body() ?: throw Exception("Response body is null")
+            val responseBody = response.body() ?: throw Exception("Response body is null")
 
-            // Write ByteString to file
+            val file = File(outputDir, "${audioFile.id}_${audioFile.fileName}${audioFile.fileExtension}")
             withContext(Dispatchers.IO) {
-                FileOutputStream(file).use { outputStream ->
-                    outputStream.write(byteString.toByteArray())
+                responseBody.byteStream().use { input ->
+                    FileOutputStream(file).use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
 
@@ -114,8 +140,8 @@ class SongRepository(
             )
             return file
         } catch (e: Exception) {
-            Log.e("SongRepository", "Download failed: ${e.message}")
-            throw Exception("Failed to download audio: ${e.message}")
+            Log.e("SongRepository", "Download failed: songId=$songId, audioId=$audioId, error=${e.message}")
+            throw e
         }
     }
 
@@ -233,6 +259,34 @@ class SongRepository(
         } catch (e: Exception) {
             Log.e("SongRepository", "Delete failed: ${e.message}")
             throw Exception("Failed to delete song: ${e.message}")
+        }
+    }
+
+    suspend fun playAudioFile(songId: Int, audioId: Int, context: Context): MediaPlayer {
+        try {
+            val audioFile = songDao.getAudioFilesBySongId(songId).find { it.id == audioId }
+                ?: throw Exception("Audio file metadata not found for ID $audioId")
+
+            if (audioFile.localPath == null || !File(audioFile.localPath).exists()) {
+                downloadAudioFile(songId, audioId, File(context.filesDir, "audio_files"))
+            }
+
+            val updatedAudioFile = songDao.getAudioFilesBySongId(songId).find { it.id == audioId }
+                ?: throw Exception("Audio file metadata not found after download for ID $audioId")
+
+            if (updatedAudioFile.localPath == null) {
+                throw Exception("Local path is null for audioId=$audioId")
+            }
+
+            return MediaPlayer().apply {
+                setDataSource(updatedAudioFile.localPath)
+                prepare()
+                start()
+                Log.d("SongRepository", "Playing audio file: ${updatedAudioFile.localPath}")
+            }
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Playback failed: songId=$songId, audioId=$audioId, error=${e.message}")
+            throw e
         }
     }
 }

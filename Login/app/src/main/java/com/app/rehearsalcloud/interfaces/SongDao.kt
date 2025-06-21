@@ -35,4 +35,12 @@ interface SongDao {
 
     @Query("SELECT * FROM AudioFile WHERE songId = :songId")
     suspend fun getAudioFilesBySongId(songId: Int): List<AudioFile>
+
+    @Transaction
+    @Query("SELECT * FROM song WHERE id = :songId")
+    suspend fun getSongWithAudioFiles(songId: Int): SongWithAudioFiles?
+
+    @Transaction
+    @Query("SELECT * FROM song WHERE id IN (:songIds)")
+    suspend fun getSongsWithAudioFiles(songIds: List<Int>): List<SongWithAudioFiles>
 }

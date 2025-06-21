@@ -3,6 +3,7 @@ package com.app.rehearsalcloud.api
 import com.app.rehearsalcloud.dtos.SongDto
 import com.app.rehearsalcloud.model.setlist.Setlist
 import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import okio.ByteString
 import retrofit2.Response
 import retrofit2.http.Body
@@ -22,7 +23,7 @@ interface SongApiService {
     suspend fun getSongById(@Path("id") id: Int): SongDto
 
     @GET("Song/{id}/audio/{audioId}")
-    suspend fun downloadAudioFile(@Path("id") songId: Int, @Path("audioId") audioId: Int): Response<ByteString>
+    suspend fun downloadAudioFile(@Path("id") songId: Int, @Path("audioId") audioId: Int): Response<ResponseBody>
 
     @Multipart
     @POST("Song/create-song")

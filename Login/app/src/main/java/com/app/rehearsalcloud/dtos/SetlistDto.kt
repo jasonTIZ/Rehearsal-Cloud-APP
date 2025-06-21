@@ -1,5 +1,8 @@
 package com.app.rehearsalcloud.dtos
 
+import com.app.rehearsalcloud.model.setlist.Setlist
+import com.app.rehearsalcloud.model.song.SongWithAudioFiles
+
 data class SetlistDto(
     val id: Int,
     val name: String,

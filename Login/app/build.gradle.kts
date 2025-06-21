@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.androidx.room.common.jvm)
     implementation(libs.androidx.room.runtime.android)
+    implementation(libs.androidx.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -64,6 +65,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Exclude listenablefuture to avoid duplicate class
+    configurations.all {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
 
     implementation(libs.androidx.appcompat)
     implementation(libs.retrofit)

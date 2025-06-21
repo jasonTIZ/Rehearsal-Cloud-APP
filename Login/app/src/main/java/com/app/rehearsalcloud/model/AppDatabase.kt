@@ -12,7 +12,7 @@ import com.app.rehearsalcloud.model.setlist.SetlistSongCrossRef
 import com.app.rehearsalcloud.model.song.Song
 
 // Room Database
-@Database(entities = [Song::class, AudioFile::class, Setlist::class, SetlistSongCrossRef::class], version = 2, exportSchema = false)
+@Database(entities = [Song::class, AudioFile::class, Setlist::class, SetlistSongCrossRef::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun setlistDao(): SetlistDao
     abstract fun songDao(): SongDao
