@@ -253,14 +253,14 @@ class SongRepository(
     }
 
     suspend fun deleteSong(id: Int) {
-    try {
-        songApiService.deleteSong(id) // No esperes ningún body, solo llama
-        songDao.deleteSong(id)        // Borra localmente solo si no hubo excepción
-    } catch (e: Exception) {
-        Log.e("SongRepository", "Delete failed: ${e.message}")
-        throw Exception("Failed to delete song: ${e.message}")
+        try {
+            songApiService.deleteSong(id) // No esperes ningún body, solo llama
+            songDao.deleteSong(id)        // Borra localmente solo si no hubo excepción
+        } catch (e: Exception) {
+            Log.e("SongRepository", "Delete failed: ${e.message}")
+            throw Exception("Failed to delete song: ${e.message}")
+        }
     }
-
     suspend fun playAudioFile(songId: Int, audioId: Int, context: Context): MediaPlayer {
         try {
             val audioFile = songDao.getAudioFilesBySongId(songId).find { it.id == audioId }
@@ -288,5 +288,4 @@ class SongRepository(
             throw e
         }
     }
-}
 }
