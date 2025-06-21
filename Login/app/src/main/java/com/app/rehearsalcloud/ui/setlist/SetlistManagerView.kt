@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,25 +41,41 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.app.rehearsalcloud.model.Setlist
+import com.app.rehearsalcloud.api.RetrofitClient
+import com.app.rehearsalcloud.model.AppDatabase
+import com.app.rehearsalcloud.model.setlist.Setlist
+import com.app.rehearsalcloud.model.setlist.SetlistWithSongs
+import com.app.rehearsalcloud.repository.SetlistRepository
 import com.app.rehearsalcloud.viewmodel.SetlistViewModel
+import com.app.rehearsalcloud.viewmodel.SetlistViewModelFactory
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetlistManagerView(navController: NavHostController) {
-    val viewModel: SetlistViewModel = viewModel()
+    val viewModel: SetlistViewModel = viewModel(
+        factory = SetlistViewModelFactory(
+            SetlistRepository(
+                AppDatabase.getDatabase(LocalContext.current).setlistDao(),
+                RetrofitClient.setlistApiService
+            )
+        )
+    )
 
     var selectedTab by remember { mutableStateOf("On my device") }
     var searchQuery by remember { mutableStateOf("") }
     var isDialogOpen by remember { mutableStateOf(false) }
     var setlistToDelete by remember { mutableStateOf<Setlist?>(null) }
 
-    var selectedDate by remember { mutableStateOf("MM/dd/yyyy") } // Default date format
+    var selectedDate by remember { mutableStateOf("MM/dd/yyyy") }
     var name by remember { mutableStateOf("") }
 
     val filteredSetlists = viewModel.setlists.filter {
@@ -69,16 +86,24 @@ fun SetlistManagerView(navController: NavHostController) {
         viewModel.loadSetlists()
     }
 
-    // Show CreateSetlistDialog when `isDialogOpen` is true
     if (isDialogOpen) {
-        CreateSetlistDialog(
-            onDismiss = { isDialogOpen = false },
-            onCreate = { setlistName, date ->
-                // Create setlist logic
-                viewModel.createSetlist(setlistName, date)
+        EditSetlistDialog(
+            setlistId = null, // Null for new setlist
+            onDismiss = {
                 isDialogOpen = false
+                name = ""
+                selectedDate = "MM/dd/yyyy"
             },
-            selectedDate = selectedDate,
+            onEdit = { _, setlistName, date ->
+                if (viewModel.validateDate(date)) {
+                    viewModel.createSetlist(setlistName, date)
+                    isDialogOpen = false
+                    name = ""
+                    selectedDate = "MM/dd/yyyy"
+                }
+            },
+            initialName = name,
+            initialDate = selectedDate,
             onDateChange = { newDate -> selectedDate = newDate },
             onNameChange = { newName -> name = newName }
         )
@@ -88,7 +113,7 @@ fun SetlistManagerView(navController: NavHostController) {
         ConfirmDeleteDialog(
             onDismiss = { setlistToDelete = null },
             onConfirmDelete = {
-                viewModel.deleteSetlist(setlist.id!!)
+                viewModel.deleteSetlist(setlist.id)
                 setlistToDelete = null
             }
         )
@@ -98,12 +123,20 @@ fun SetlistManagerView(navController: NavHostController) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color.Gray)
         }
+    } else if (viewModel.errorMessage != null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = "Error: ${viewModel.errorMessage}",
+                color = Color.Red,
+                fontSize = 16.sp
+            )
+        }
     } else {
-        Column(modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)) {
-
-            // Header Row with title and create button
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -112,9 +145,7 @@ fun SetlistManagerView(navController: NavHostController) {
                 Text("Setlists", fontSize = 28.sp, fontWeight = FontWeight.Bold)
 
                 Button(
-                    onClick = {
-                        isDialogOpen = true // ✅ Open modal
-                    },
+                    onClick = { isDialogOpen = true },
                     border = BorderStroke(2.dp, Color.Black),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                     shape = RoundedCornerShape(10.dp)
@@ -127,7 +158,6 @@ fun SetlistManagerView(navController: NavHostController) {
 
             Spacer(Modifier.height(16.dp))
 
-            // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -138,16 +168,16 @@ fun SetlistManagerView(navController: NavHostController) {
                     .background(Color(0xFFF0F0F0), shape = RoundedCornerShape(10.dp)),
                 singleLine = true,
                 shape = RoundedCornerShape(10.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = Color(0xFFF0F0F0),
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = Color.Transparent
+                colors = TextFieldDefaults.colors(
+                    unfocusedContainerColor = Color(0xFFF0F0F0),
+                    focusedContainerColor = Color(0xFFF0F0F0),
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent
                 )
             )
 
             Spacer(Modifier.height(16.dp))
 
-            // Tabs and Sort
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -179,7 +209,6 @@ fun SetlistManagerView(navController: NavHostController) {
 
             Spacer(Modifier.height(16.dp))
 
-            // Setlist Items
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -200,12 +229,11 @@ fun SetlistManagerView(navController: NavHostController) {
     }
 }
 
-
 @Composable
 fun SetlistItem(
     setlist: Setlist,
-    onEditClick: (Setlist) -> Unit,
-    onDeleteClick: (Setlist) -> Unit
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -217,16 +245,29 @@ fun SetlistItem(
     ) {
         Column {
             Text(setlist.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text("Author's name", color = Color.Gray, fontSize = 14.sp) // You may bind real author name here
+            Text(
+                text = formatDateForDisplay(setlist.date),
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconButton(onClick = { onEditClick(setlist) }) {
+            IconButton(onClick = { onEditClick() }) {
                 Icon(Icons.Default.Edit, contentDescription = "Edit")
             }
-            IconButton(onClick = { onDeleteClick(setlist) }) {
+            IconButton(onClick = { onDeleteClick() }) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
             }
         }
+    }
+}
+
+fun formatDateForDisplay(dateLong: Long): String {
+    return try {
+        val outputFormat = SimpleDateFormat("MM/dd/yyyy", Locale.US)
+        outputFormat.format(Date(dateLong))
+    } catch (e: Exception) {
+        "MM/dd/yyyy"
     }
 }

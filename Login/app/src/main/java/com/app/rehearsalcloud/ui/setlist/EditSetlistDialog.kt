@@ -1,11 +1,14 @@
 package com.app.rehearsalcloud.ui.setlist
 
 import android.app.DatePickerDialog
+import android.content.Context
 import android.widget.DatePicker
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
@@ -17,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,92 +28,106 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
 import androidx.compose.ui.platform.LocalContext
+import java.text.SimpleDateFormat
 
 @Composable
 fun EditSetlistDialog(
-    setlistId: Int?, // Pass in setlistId when editing
+    setlistId: Int?,
     onDismiss: () -> Unit,
-    onEdit: (Int, String, String) -> Unit, // Modified callback to include setlistId
+    onEdit: (Int, String, String) -> Unit,
     initialName: String?,
     initialDate: String?,
     onDateChange: (String) -> Unit,
     onNameChange: (String) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName ?: "") }
-    var date by remember { mutableStateOf(initialDate ?: "") }
-    val calendar = Calendar.getInstance()
-    val year = calendar.get(Calendar.YEAR)
-    val month = calendar.get(Calendar.MONTH)
-    val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-    // Get the Context to create DatePickerDialog
+    var date by remember { mutableStateOf(initialDate ?: "MM/dd/yyyy") }
+    var dateError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-
-    // Handle DatePicker Dialog visibility
-    val showDatePicker = remember { mutableStateOf(false) }
-
-    // DatePickerDialog to select the date
-    if (showDatePicker.value) {
-        DatePickerDialog(
-            context,
-            { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
-                val selectedLocalDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDayOfMonth)
-                date = selectedLocalDate.format(DateTimeFormatter.ofPattern("MM/dd/yyyy"))
-                onDateChange(date)
-                showDatePicker.value = false
-            },
-            year,
-            month,
-            day
-        ).show()
-    }
 
     AlertDialog(
         onDismissRequest = { onDismiss() },
         title = {
-            // Change the title based on whether setlistId is null (new) or exists (edit)
-            Text(if (setlistId == null) "Create a new setlist" else "Edit Setlist", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(
+                if (setlistId == null) "Create a new setlist" else "Edit Setlist",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
         },
         text = {
             Column {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        onNameChange(it)
+                    },
                     label = { Text("Setlist name") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = name.trim().isEmpty()
                 )
+                if (name.trim().isEmpty()) {
+                    Text(
+                        text = "Name cannot be empty",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = date,
-                    onValueChange = { /* Do nothing, it's read-only */ },
-                    label = { Text("Service date") },
+                    onValueChange = { /* Read-only */ },
+                    label = { Text("Service date (MM/dd/yyyy)") },
                     enabled = false,
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = {
-                        TextButton(onClick = { showDatePicker.value = true }) {
-                            Text("Pick date")
-                        }
-                    }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showDatePicker(context) { selectedDate ->
+                                date = selectedDate
+                                onDateChange(selectedDate)
+                                dateError = if (!validateDate(selectedDate)) {
+                                    "Invalid date format. Use MM/dd/yyyy"
+                                } else {
+                                    null
+                                }
+                            }
+                        },
+                    isError = dateError != null || date == "MM/dd/yyyy"
                 )
+                if (dateError != null) {
+                    Text(
+                        text = dateError!!,
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
+                if (date == "MM/dd/yyyy") {
+                    Text(
+                        text = "Please select a date",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (setlistId != null) {
-                        // When editing, pass the setlistId along with the name and date
                         onEdit(setlistId, name, date)
                     } else {
-                        // If it's a new setlist, the onCreate action can be triggered
-                        onEdit(0, name, date) // Adjust logic as per your flow
+                        onEdit(0, name, date)
                     }
                     onDismiss()
                 },
-                enabled = name.trim().isNotEmpty()
+                enabled = name.trim().isNotEmpty() && date != "MM/dd/yyyy" && dateError == null
             ) {
-                Text(if (setlistId == null) "Create" else "Save") // Change the button text accordingly
+                Text(if (setlistId == null) "Create" else "Save")
             }
         },
         dismissButton = {
@@ -118,4 +136,38 @@ fun EditSetlistDialog(
             }
         }
     )
+}
+
+fun validateDate(dateString: String): Boolean {
+    return try {
+        val inputFormat = SimpleDateFormat("MM/dd/yyyy", Locale.US)
+        inputFormat.isLenient = false
+        inputFormat.parse(dateString) != null
+    } catch (e: Exception) {
+        false
+    }
+}
+
+fun showDatePicker(context: Context, onDateSelected: (String) -> Unit) {
+    val calendar = Calendar.getInstance()
+    val year = calendar.get(Calendar.YEAR)
+    val month = calendar.get(Calendar.MONTH)
+    val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+    DatePickerDialog(
+        context,
+        { _, selectedYear, selectedMonth, selectedDay ->
+            val formattedDate = String.format(
+                Locale.US,
+                "%02d/%02d/%04d",
+                selectedMonth + 1,
+                selectedDay,
+                selectedYear
+            )
+            onDateSelected(formattedDate)
+        },
+        year,
+        month,
+        day
+    ).show()
 }

@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.androidx.benchmark.macro)
     implementation(libs.androidx.games.activity)
     implementation(libs.play.services.maps)
+    implementation(libs.androidx.room.common.jvm)
+    implementation(libs.androidx.room.runtime.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
